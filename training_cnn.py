@@ -67,16 +67,21 @@ def predict_probs(state: TrainState, batch: Array) -> Array:
 def apply_model(state: TrainState, batch: Array, labels: Array):
     """Computes gradients, loss and accuracy for a single batch."""
 
-    def loss_fn(params):
+    def loss_fn(params, batch_stats):
 
-        logits = state.apply_fn({'params': params}, batch)
+        logits, batch_stats = state.apply_fn(
+            {'params': params, 'batch_stats': batch_stats},
+            batch,
+            training=True,
+            mutable=['batch_stats']
+        )
         one_hot = jax.nn.one_hot(labels, 10)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
 
-        return loss, logits
+        return loss, (logits, batch_stats)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, logits), grads = grad_fn(state.params)
+    (loss, (logits, batch_stats)), grads = grad_fn(state.params, state.batch_stats)
     accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
     
     return grads, loss, accuracy
@@ -148,7 +153,7 @@ def train_and_eval(
 
         key, epoch_key = jax.random.split(key)
         state, train_loss, train_accuracy = train_epoch(state, x_train, y_train, batch_size, epoch_key)
-        _, test_loss, test_accuracy = apply_model(state, x_test, y_test)
+        test_loss, test_accuracy = eval_BatchNormCNN(state, x_test, y_test)
         metrices.update(train_loss, train_accuracy * 100, test_loss, test_accuracy * 100)
         
         if log_every and (epoch % log_every == 0 or epoch in {1, epochs}):
@@ -158,17 +163,6 @@ def train_and_eval(
             )
         
         checkpoint(checkpoint_dir, state, metrices, epoch, time.time() - start)
-    
-    
-    # # Save checkpoint and save training time
-    # if checkpoint_dir:
-    #     try:
-    #         save_checkpoint(checkpoint_dir, target=state, step=epochs)
-    #         time_file = open(os.path.join(checkpoint_dir, "elapsed_time.txt"), "w")
-    #         time_file.write(f"{datetime.timedelta(seconds=elapsed_time)}")
-    #         time_file.close()
-    #     except flax.errors.InvalidCheckpointError:
-    #         logging.warn(f"Trying to save an outdated checkpoint at step: {epochs} and path: {checkpoint_dir}/")
 
     return state, metrices, time.time() - start
 
@@ -244,12 +238,12 @@ if __name__ == "__main__":
 
     final_state, metrices, elapsed_time = train_and_eval(
         seed=42,
-        epochs=3,
+        epochs=150,
         batch_size=32,
         create_state_fun=ARCHITECTURES[cnn_code],
         lr=0.001,
         momentum=0.9,
-        ds_chunk_size=0.05,
+        ds_chunk_size=1.,
         log_every=1,
         checkpoint_dir=os.path.join("checkpoints", cnn_code),
     )
