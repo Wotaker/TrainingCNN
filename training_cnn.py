@@ -73,7 +73,8 @@ def apply_model(state: TrainState, batch: Array, labels: Array):
             {'params': params, 'batch_stats': batch_stats},
             batch,
             training=True,
-            mutable=['batch_stats']
+            mutable=['batch_stats'],
+            rngs={'dropout': jax.random.PRNGKey(42)}
         )
         one_hot = jax.nn.one_hot(labels, 10)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
@@ -234,7 +235,7 @@ def plot_samples(batch: Array, batch_labels: Array, subplots_shape: Shape = (3, 
 
 if __name__ == "__main__":
 
-    cnn_code = "batch_norm_cnn"
+    cnn_code = "dropout_cnn"
 
     final_state, metrices, elapsed_time = train_and_eval(
         seed=42,
