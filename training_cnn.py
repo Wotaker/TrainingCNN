@@ -163,7 +163,7 @@ def train_and_eval(
 
         key, epoch_key = jax.random.split(key)
         state, train_loss, train_accuracy = train_epoch(state, x_train, y_train, batch_size, epoch_key)
-        test_loss, test_accuracy = eval_BatchNormCNN(state, x_test, y_test)
+        test_loss, test_accuracy = eval_GAPCNN(state, x_test, y_test)
         metrices.update(train_loss, train_accuracy * 100, test_loss, test_accuracy * 100)
         
         if log_every and (epoch % log_every == 0 or epoch in {1, epochs}):
