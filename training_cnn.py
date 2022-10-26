@@ -69,7 +69,7 @@ def apply_model(state: TrainState, batch: Array, labels: Array):
 
     def loss_fn(params, batch_stats):
 
-        logits, batch_stats = state.apply_fn(
+        logits, mutated_vars = state.apply_fn(
             {'params': params, 'batch_stats': batch_stats},
             batch,
             training=True,
@@ -79,13 +79,22 @@ def apply_model(state: TrainState, batch: Array, labels: Array):
         one_hot = jax.nn.one_hot(labels, 10)
         loss = jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
 
-        return loss, (logits, batch_stats)
+        return loss, (logits, mutated_vars)
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-    (loss, (logits, batch_stats)), grads = grad_fn(state.params, state.batch_stats)
+    (loss, (logits, mutated_vars)), grads = grad_fn(state.params, state.batch_stats)
     accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
+
+    new_state = TrainState(
+        step=state.step,
+        apply_fn=state.apply_fn,
+        params=state.params,
+        tx=state.tx,
+        opt_state=state.opt_state,
+        batch_stats=mutated_vars['batch_stats']
+    )
     
-    return grads, loss, accuracy
+    return grads, new_state, loss, accuracy
 
 
 @jax.jit
@@ -115,7 +124,7 @@ def train_epoch(
 
 		x_batch = x_train[perm, ...]
 		y_batch = y_train[perm, ...]
-		grads, loss, accuracy = apply_model(state, x_batch, y_batch)
+		grads, state, loss, accuracy = apply_model(state, x_batch, y_batch)
 		state = update_model(state, grads)
 		epoch_loss.append(loss)
 		epoch_accuracy.append(accuracy)
@@ -242,9 +251,9 @@ if __name__ == "__main__":
         epochs=150,
         batch_size=32,
         create_state_fun=ARCHITECTURES[cnn_code],
-        lr=0.001,
+        lr=0.005,
         momentum=0.9,
-        ds_chunk_size=1.,
+        ds_chunk_size=0.1,
         log_every=1,
         checkpoint_dir=os.path.join("checkpoints", cnn_code),
     )
