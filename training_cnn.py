@@ -12,7 +12,7 @@ from jax.random import PRNGKey as jkey
 from chex import Scalar, Array, PRNGKey, Shape
 import flax
 from flax import linen as nn
-from flax.training.train_state import TrainState
+from flax.training.train_state import TrainState as RawTrainState
 from flax.training.checkpoints import save_checkpoint
 import optax
 import matplotlib.pyplot as plt
@@ -262,24 +262,32 @@ def single_prediction(img: str | Array, model: TrainState, train_shape: Shape = 
         img = jnp.array(full_img.resize((w_scaled, h_scaled)))
         full_img = jnp.array(full_img)
 
-    prediction = GAPCNN().apply(
-        {'params': GAP_MODEL.params, 'batch_stats': GAP_MODEL.batch_stats},
-        jnp.expand_dims(img, axis=0),
-        training=False,
-        rngs={'dropout': jax.random.PRNGKey(42)}
-    )
+    if type(model) == TrainState:
+        prediction = GAPCNN().apply(
+            {'params': model.params, 'batch_stats': model.batch_stats},
+            jnp.expand_dims(img, axis=0),
+            training=False,
+            rngs={'dropout': jax.random.PRNGKey(42)}
+        )
+    else:
+        prediction = MinCNN().apply(
+            {'params': model.params},
+            jnp.expand_dims(img, axis=0)
+        )
+    
     prediction_probs = 100 * jnp.squeeze(jnp.exp(jax.nn.log_softmax(prediction)))
 
-    prediction_dict = {LABEL_NAMES[i]: prediction_probs[i] for i in range(10)}
-
-    fig, axes = plt.subplots(1, 2)
-    fig.set_size_inches(15, 5)
-    axes[0].imshow(full_img)
-    axes[0].set_axis_off()
-    axes[1].bar(LABEL_NAMES, prediction_probs)
-    plt.show()
+    if verbose:
+        fig, axes = plt.subplots(1, 2)
+        fig.set_size_inches(15, 5)
+        axes[0].imshow(full_img)
+        axes[0].set_axis_off()
+        axes[1].bar(LABEL_NAMES, prediction_probs)
+        axes[1].set_ylim(0, 100)
+        axes[1].set_ylabel("Probability [%]")
+        plt.show()
     
-    return prediction_dict
+    return {LABEL_NAMES[i]: prediction_probs[i] for i in range(10)}
 
 
 if __name__ == "__main__":

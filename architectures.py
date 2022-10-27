@@ -189,7 +189,7 @@ def create_MinCNN(
     params = cnn.init(init_key, dummy_batch)['params']
     sgd = optax.sgd(learning_rate=lr, momentum=momentum)
 
-    return TrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
+    return RawTrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
 
 
 def create_MinCNNPlus(
@@ -203,7 +203,7 @@ def create_MinCNNPlus(
     params = cnn.init(init_key, dummy_batch)['params']
     sgd = optax.sgd(learning_rate=lr, momentum=momentum)
 
-    return TrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
+    return RawTrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
 
 
 def create_DoubleBlockCNN(
@@ -217,7 +217,7 @@ def create_DoubleBlockCNN(
     params = cnn.init(init_key, dummy_batch)['params']
     sgd = optax.sgd(learning_rate=lr, momentum=momentum)
 
-    return TrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
+    return RawTrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
 
 
 def create_QuadBlockCNN(
@@ -231,7 +231,7 @@ def create_QuadBlockCNN(
     params = cnn.init(init_key, dummy_batch)['params']
     sgd = optax.sgd(learning_rate=lr, momentum=momentum)
 
-    return TrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
+    return RawTrainState.create(apply_fn=cnn.apply, params=params, tx=sgd)
 
 
 def create_BatchNormCNN(
@@ -345,6 +345,13 @@ ARCHITECTURES = {
     "gap_cnn": create_GAPCNN
 }
 
+
+DUMMY_MODEL = create_GAPCNN(jnp.zeros((1, 32, 32, 3)), jax.random.PRNGKey(42))
+
+MIN_CNN_MODEL = restore_checkpoint(
+    "../results/min_cnn", 
+    create_MinCNN(jnp.zeros((1, 32, 32, 3)), jax.random.PRNGKey(42))
+)
 
 GAP_MODEL = restore_checkpoint(
     "../results/gap_cnn", 
