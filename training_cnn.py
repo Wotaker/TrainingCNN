@@ -244,7 +244,7 @@ def plot_samples(batch: Array, batch_labels: Array, subplots_shape: Shape = (3, 
 
 if __name__ == "__main__":
 
-    cnn_code = "dropout_cnn"
+    cnn_code = "gap_cnn"
 
     final_state, metrices, elapsed_time = train_and_eval(
         seed=42,
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         create_state_fun=ARCHITECTURES[cnn_code],
         lr=0.005,
         momentum=0.9,
-        ds_chunk_size=0.1,
+        ds_chunk_size=1.0,
         log_every=1,
         checkpoint_dir=os.path.join("checkpoints", cnn_code),
     )
