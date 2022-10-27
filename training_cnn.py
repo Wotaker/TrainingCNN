@@ -4,6 +4,7 @@ from absl import logging
 import os
 import time
 import datetime
+from PIL import Image
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -20,6 +21,9 @@ import tensorflow as tf
 from architectures import *
 
 logging.set_verbosity(logging.WARN)
+
+
+LABEL_NAMES = ["plane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
 
 
 
@@ -225,7 +229,7 @@ def plot_samples(batch: Array, batch_labels: Array, subplots_shape: Shape = (3, 
     cols = subplots_shape[1]
     num = rows * cols
 
-    labels_names = ["airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"]
+    labels_names = LABEL_NAMES
     indeces = jax.random.choice(jax.random.PRNGKey(seed), batch.shape[0], (num,), replace=False)
 
     images = batch[indeces]
@@ -240,6 +244,42 @@ def plot_samples(batch: Array, batch_labels: Array, subplots_shape: Shape = (3, 
         ax.axis('off')
     fig.tight_layout()
     plt.show()
+
+
+def single_prediction(img: str | Array, model: TrainState, train_shape: Shape = (32, 32), verbose: bool = False):
+
+    full_img = img
+    
+    if type(img) == str:
+        full_img = Image.open(img)
+        w_train, h_train = train_shape
+        w_input, h_input = full_img.size
+        if w_input < h_input:
+            w_scaled, h_scaled = w_train, int(h_input * w_train / w_input)
+        else:
+            w_scaled, h_scaled = int(w_input * h_train / h_input), h_train
+
+        img = jnp.array(full_img.resize((w_scaled, h_scaled)))
+        full_img = jnp.array(full_img)
+
+    prediction = GAPCNN().apply(
+        {'params': GAP_MODEL.params, 'batch_stats': GAP_MODEL.batch_stats},
+        jnp.expand_dims(img, axis=0),
+        training=False,
+        rngs={'dropout': jax.random.PRNGKey(42)}
+    )
+    prediction_probs = 100 * jnp.squeeze(jnp.exp(jax.nn.log_softmax(prediction)))
+
+    prediction_dict = {LABEL_NAMES[i]: prediction_probs[i] for i in range(10)}
+
+    fig, axes = plt.subplots(1, 2)
+    fig.set_size_inches(15, 5)
+    axes[0].imshow(full_img)
+    axes[0].set_axis_off()
+    axes[1].bar(LABEL_NAMES, prediction_probs)
+    plt.show()
+    
+    return prediction_dict
 
 
 if __name__ == "__main__":

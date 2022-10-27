@@ -3,8 +3,14 @@ import jax
 import optax
 from flax import linen as nn
 from flax.training.train_state import TrainState as RawTrainState
+from flax.training.checkpoints import restore_checkpoint
 from flax.core import FrozenDict
 from chex import Array, Scalar, PRNGKey
+
+
+IMG_RANDOM = jax.random.randint(jax.random.PRNGKey(42), (32, 32, 3), 0, 255, jnp.uint8)
+IMG_BLACK = jnp.zeros((32, 32, 3), jnp.uint8)
+IMG_WHITE = 255 * jnp.ones((32, 32, 3), jnp.uint8)
 
 
 class TrainState(RawTrainState):
@@ -338,3 +344,9 @@ ARCHITECTURES = {
     "dropout_cnn": create_DropoutCNN,
     "gap_cnn": create_GAPCNN
 }
+
+
+GAP_MODEL = restore_checkpoint(
+    "../results/gap_cnn", 
+    create_GAPCNN(jnp.zeros((1, 32, 32, 3)), jax.random.PRNGKey(42))
+)
